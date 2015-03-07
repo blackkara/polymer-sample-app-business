@@ -1,0 +1,190 @@
+<!-- 
+    1. Gets gps location
+    2. Generates sentence
+    3. Sends the sentece to server
+-->
+<link rel="import" href="/public/polymer/polymer.html">
+<link rel="import" href="/public/geo-location/geo-location.html">
+<link rel="import" href="/public/core-ajax/core-ajax.html">
+
+<!-- 
+    @url: remote url device sends data
+    @period: device send period
+    @onSentence:
+    @onPosition:
+-->
+<polymer-element name="phone-business" constructor="PhoneBusiness"
+    attributes="url period sentence position service">
+    
+    <template>
+        
+        <geo-location watchpos highAccuracy="true"></geo-location>
+        
+        <core-ajax url={{url}}></core-ajax>
+        
+        <!--
+            <h3>Device updated, {{lastUpdate}}</h3>
+            <h4>Latitude, {{lastLat}}</h4>
+            <h4>Longitude, {{lastLng}}</h4>
+        -->
+        
+    </template>
+   
+    
+    <script>
+
+        Polymer({
+            
+           /**
+            * logging flag, @default false
+            */
+            log: true,
+            
+           /**
+            * logging tag
+            */
+            tag: 'phone-business',
+            
+           /**
+            * remote server url, core-ajax uses
+            */
+            url: '',
+            
+           /**
+            * task sends location info to server 
+            * periodically by this value
+            * @default 3000 seconds
+            */
+            period: 3000,
+            
+           /**
+            * Interval 
+            * when service started, will be initialized
+            * when service stopped, will be cleared
+            */
+            task: null,
+            
+           /** 
+            * @lastUpdate, Device last update time
+            * When device gets location, updates lastUpdate
+            */
+            lastUpdate: null,
+            
+           /** 
+            * @lastLat, Device last latitude
+            * When device gets latitude, updates lastLat
+            */
+            lastLat: null,
+            
+           /** 
+            * @latLng, Device last longitude
+            * When device gets longitude, updates lastLng 
+            */
+            lastLng: null,
+            
+           /**
+            * status of service
+            * startService and stopService change
+            * @default false
+            */
+            serviceStatus: false,
+            
+           /** 
+            * Listens to service property, started or not.
+            * if true, 
+            */
+            serviceChanged: function(e){
+                
+                var self = this;
+                
+                var status = self.service_;
+                
+                var gps = self.shadowRoot.querySelector('geo-location');
+                
+                if(status){
+                    
+                    if(self.log) console.log(self.tag + ': Service has started');
+                    
+                    gps.watchPos = true;
+                    
+                    var ajx = self.shadowRoot.querySelector('core-ajax');
+                    
+                    ajx.url = self.url_;
+                    
+                    self.task = setInterval(function(){
+                    
+                        ajx.params = JSON.stringify({
+                            latitude: self.lastLat,
+                            longitude: self.lastLng,
+                            updatetime: self.lastUpdate
+                        });
+                        
+                        self.sentence = ajx.params + new Date();
+                        
+                        ajx.go();
+                        
+                        if(self.log) console.log(self.tag + ': Task is working... ' + ajx.params);
+                    
+                    }, self.period);
+                }
+                
+                else {
+                    
+                    if(self.log) console.log(self.tag + ': Service has stopped');
+                    
+                    clearInterval(self.task);
+                    
+                    gps.watchPos = false;
+                }
+            },
+            
+            
+            
+            /**
+            * Starts to listen geo-location module. 
+            * When geo-respone fired, below values
+            * @lastUpdate 
+            * @lastLat
+            * @lastLng
+            * will be updated
+            */
+            ready: function(){
+                
+                var self = this;
+    
+                var gps = this.shadowRoot.querySelector('geo-location');
+                
+                gps.addEventListener('geo-response', function(){
+                    
+                    self.lastUpdate = new Date();
+                    
+                    self.lastLat = this.latitude.toFixed(8);
+                    
+                    self.lastLng = this.longitude.toFixed(8);
+                    
+                });
+                
+                
+                var ajx = this.shadowRoot.querySelector('core-ajax');
+                
+                ajx.addEventListener('on-core-response', function(){
+                    
+                    if(self.log) console.log('--RESPONSE--');
+                    
+                });
+                
+                ajx.addEventListener('core-error', function(){
+                    
+                    if(self.log) console.log('--error--');
+                    
+                });
+                
+                if(self.log) console.log(this.tag + ': ready!' 
+                    +' url ' + self.url
+                    +' period ' + self.period + 'sec.');
+            }
+      
+        });
+    </script>
+    
+</polymer-element>
