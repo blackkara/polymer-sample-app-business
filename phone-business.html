@@ -1,35 +1,23 @@
-<!-- 
-    1. Gets gps location
-    2. Generates sentence
-    3. Sends the sentece to server
--->
-<link rel="import" href="/public/polymer/polymer.html">
-<link rel="import" href="/public/geo-location/geo-location.html">
-<link rel="import" href="/public/core-ajax/core-ajax.html">
+<link rel="import" href="/bower_components/polymer/polymer.html">
+<link rel="import" href="/bower_components/geo-location/geo-location.html">
+<link rel="import" href="/bower_components/core-ajax/core-ajax.html">
 
 <!-- 
-    @url: remote url device sends data
-    @period: device send period
-    @sentence: 
+    @url: sends data to specified url
+    @period: sends data to specified url every specified period
+    @service: starts or stops service
 -->
 <polymer-element name="phone-business" constructor="PhoneBusiness"
-    attributes="url type period sentence service">
+    attributes="url period service">
     
     <template>
         
-        <geo-location watchpos highAccuracy="true"></geo-location>
+        <geo-location highAccuracy="true"></geo-location>
         
         <core-ajax url={{url}}></core-ajax>
-        
-        <!--
-            <h3>Device updated, {{lastUpdate}}</h3>
-            <h4>Latitude, {{lastLat}}</h4>
-            <h4>Longitude, {{lastLng}}</h4>
-        -->
-        
+
     </template>
    
-    
     <script>
 
         Polymer({
@@ -45,14 +33,20 @@
             tag: 'phone-business',
             
            /**
-            * remote server url, core-ajax uses
+            * remote server url, 'core-ajax' uses
             */
             url: '',
             
            /**
-            * task sends location info to server 
-            * periodically by this value
-            * @default 3000 seconds
+            * 'task' uses to send data to server.
+            *
+            * It might send data with specified period
+            * forexample, in every 5000 miliseconds
+            *
+            * Or, might send data as soon as 
+            * geo-location obtaines
+            *
+            * @default 3000 miliseconds
             */
             period: 3000,
             
@@ -62,16 +56,6 @@
             * when service stopped, will be cleared
             */
             task: null,
-            
-            
-           /**
-            * Specifies how to send data to server
-            * 
-            * @type: 'period' It might send data by task period
-            * @type: 'location' It might send data when location obtained
-            * @default: 'period'
-            */
-            type: 'period',
             
            /** 
             * @lastUpdate, Device last update time
@@ -131,7 +115,7 @@
                         
                         self.lastLng = this.longitude.toFixed(8);
                         
-                        if(self.type === 'location'){
+                        if(self.period === 'location'){
                             
                             ajx.params = JSON.stringify({
                                 latitude: self.lastLat,
@@ -146,8 +130,8 @@
                         }
                         
                     });
-                    
-                    if(self.type === 'period'){
+                
+                    if(!isNaN(self.period) && self.period >0){
                         
                         self.task = setInterval(function(){
                     
@@ -211,8 +195,7 @@
                 
                 if(self.log) console.log(this.tag + ': ready!' 
                     +' url ' + self.url
-                    +' period ' + self.period + 'sec.'
-                    +' type ' + self.type);
+                    +' period ' + self.period);
             }
       
         });
