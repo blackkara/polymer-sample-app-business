@@ -10,11 +10,10 @@
 <!-- 
     @url: remote url device sends data
     @period: device send period
-    @onSentence:
-    @onPosition:
+    @sentence: 
 -->
 <polymer-element name="phone-business" constructor="PhoneBusiness"
-    attributes="url period sentence position service">
+    attributes="url type period sentence service">
     
     <template>
         
@@ -64,6 +63,16 @@
             */
             task: null,
             
+            
+           /**
+            * Specifies how to send data to server
+            * 
+            * @type: 'period' It might send data by task period
+            * @type: 'location' It might send data when location obtained
+            * @default: 'period'
+            */
+            type: 'period',
+            
            /** 
             * @lastUpdate, Device last update time
             * When device gets location, updates lastUpdate
@@ -101,40 +110,74 @@
                 
                 var gps = self.shadowRoot.querySelector('geo-location');
                 
+                var ajx = self.shadowRoot.querySelector('core-ajax');
+                    
+                ajx.url = self.url_;
+                
                 if(status){
                     
-                    if(self.log) console.log(self.tag + ': Service has started');
-                    
+                    // Listen location
                     gps.watchPos = true;
                     
-                    var ajx = self.shadowRoot.querySelector('core-ajax');
-                    
-                    ajx.url = self.url_;
-                    
-                    self.task = setInterval(function(){
-                    
-                        ajx.params = JSON.stringify({
-                            latitude: self.lastLat,
-                            longitude: self.lastLng,
-                            updatetime: self.lastUpdate
-                        });
+                    gps.addEventListener('geo-response', function(){
                         
-                        self.sentence = ajx.params + new Date();
+                        //gps.removeEventListener('geo-response', arguments.callee);
                         
-                        ajx.go();
-                        
-                        if(self.log) console.log(self.tag + ': Task is working... ' + ajx.params);
+                        if(self.log) console.log(self.tag + ': location updated');
                     
-                    }, self.period);
+                        self.lastUpdate = new Date();
+                        
+                        self.lastLat = this.latitude.toFixed(8);
+                        
+                        self.lastLng = this.longitude.toFixed(8);
+                        
+                        if(self.type === 'location'){
+                            
+                            ajx.params = JSON.stringify({
+                                latitude: self.lastLat,
+                                longitude: self.lastLng,
+                                updatetime: self.lastUpdate
+                            });
+                            
+                            self.sentence = ajx.params + new Date();
+                            
+                            ajx.go();
+                            
+                        }
+                        
+                    });
+                    
+                    if(self.type === 'period'){
+                        
+                        self.task = setInterval(function(){
+                    
+                            ajx.params = JSON.stringify({
+                                latitude: self.lastLat,
+                                longitude: self.lastLng,
+                                updatetime: self.lastUpdate
+                            });
+                        
+                            self.sentence = ajx.params + new Date();
+                        
+                            ajx.go();
+                        
+                            if(self.log) console.log(self.tag + ': Task is working... ' + ajx.params);
+                    
+                        }, self.period);
+                    }
+                    
+                    if(self.log) console.log(self.tag + ': Service has started');
                 }
                 
                 else {
                     
                     if(self.log) console.log(self.tag + ': Service has stopped');
                     
-                    clearInterval(self.task);
+                    if(self.task)
+                        clearInterval(self.task);
                     
                     gps.watchPos = false;
+                    
                 }
             },
             
@@ -152,19 +195,6 @@
                 
                 var self = this;
     
-                var gps = this.shadowRoot.querySelector('geo-location');
-                
-                gps.addEventListener('geo-response', function(){
-                    
-                    self.lastUpdate = new Date();
-                    
-                    self.lastLat = this.latitude.toFixed(8);
-                    
-                    self.lastLng = this.longitude.toFixed(8);
-                    
-                });
-                
-                
                 var ajx = this.shadowRoot.querySelector('core-ajax');
                 
                 ajx.addEventListener('on-core-response', function(){
@@ -175,13 +205,14 @@
                 
                 ajx.addEventListener('core-error', function(){
                     
-                    if(self.log) console.log('--error--');
+                    if(self.log) console.log('--ERROR--');
                     
                 });
                 
                 if(self.log) console.log(this.tag + ': ready!' 
                     +' url ' + self.url
-                    +' period ' + self.period + 'sec.');
+                    +' period ' + self.period + 'sec.'
+                    +' type ' + self.type);
             }
       
         });
