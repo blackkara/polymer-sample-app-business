@@ -8,7 +8,7 @@ phone-business includes
 
 sends data to server
 *   specified period
-*   as soon as geo-location obtaines
+*   or, when as soon as geo-location obtaines
 
 phone-business needs remote url for sending data.
 

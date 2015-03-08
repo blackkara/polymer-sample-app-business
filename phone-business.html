@@ -14,7 +14,7 @@
         
         <geo-location highAccuracy="true"></geo-location>
         
-        <core-ajax url={{url}}></core-ajax>
+        <core-ajax id="ajax" url={{url}} reponse="{{ajaxResponse}}" error="{{ajaxError}}"></core-ajax>
 
     </template>
    
@@ -31,6 +31,19 @@
             * logging tag
             */
             tag: 'phone-business',
+              
+           /**
+            * Device id
+            * @default null
+            */
+            deviceId: null,
+            
+           /**
+            * sets deviceId
+            */
+            setDeviceId: function(id){
+                this.deviceId = id;
+            },
             
            /**
             * remote server url, 'core-ajax' uses
@@ -76,6 +89,19 @@
             lastLng: null,
             
            /**
+            * For each sentence, phone-business assignes id
+            */
+            nextSentenceId: 1,
+            
+           /**
+            * uses nextSentenceId property
+            * increases +1
+            */
+            ID: function(){
+                return 'SENTENCE_' + (this.nextSentenceId++);
+            },
+            
+           /**
             * status of service
             * startService and stopService change
             * @default false
@@ -84,7 +110,6 @@
             
            /** 
             * Listens to service property, started or not.
-            * if true, 
             */
             serviceChanged: function(e){
                 
@@ -105,8 +130,6 @@
                     
                     gps.addEventListener('geo-response', function(){
                         
-                        //gps.removeEventListener('geo-response', arguments.callee);
-                        
                         if(self.log) console.log(self.tag + ': location updated');
                     
                         self.lastUpdate = new Date();
@@ -118,12 +141,14 @@
                         if(self.period === 'location'){
                             
                             ajx.params = JSON.stringify({
+                                sentenceId: self.ID(),
+                                deviceId: self.deviceId,
                                 latitude: self.lastLat,
                                 longitude: self.lastLng,
                                 updatetime: self.lastUpdate
                             });
                             
-                            self.sentence = ajx.params + new Date();
+                            self.fire('on-sentence', ajx.params);
                             
                             ajx.go();
                             
@@ -136,12 +161,14 @@
                         self.task = setInterval(function(){
                     
                             ajx.params = JSON.stringify({
+                                sentenceId: self.ID(),
+                                deviceId: self.deviceId,
                                 latitude: self.lastLat,
                                 longitude: self.lastLng,
                                 updatetime: self.lastUpdate
                             });
                         
-                            self.sentence = ajx.params + new Date();
+                            self.fire('on-sentence', ajx.params);
                         
                             ajx.go();
                         
@@ -161,37 +188,27 @@
                         clearInterval(self.task);
                     
                     gps.watchPos = false;
+                    ajx.abort();
                     
                 }
             },
             
+
             
+            ajaxResponse: function(e){
+                
+                if(self.log) console.log(self.tag + ': Response from server');
+                //if(self.log) console.log(e);
+                
+            },
             
-            /**
-            * Starts to listen geo-location module. 
-            * When geo-respone fired, below values
-            * @lastUpdate 
-            * @lastLat
-            * @lastLng
-            * will be updated
-            */
+            ajaxError: function(e){
+                
+                if(self.log) console.log(self.tag + ': Error occured');
+                //if(self.log) console.log(e);
+            },
+
             ready: function(){
-                
-                var self = this;
-    
-                var ajx = this.shadowRoot.querySelector('core-ajax');
-                
-                ajx.addEventListener('on-core-response', function(){
-                    
-                    if(self.log) console.log('--RESPONSE--');
-                    
-                });
-                
-                ajx.addEventListener('core-error', function(){
-                    
-                    if(self.log) console.log('--ERROR--');
-                    
-                });
                 
                 if(self.log) console.log(this.tag + ': ready!' 
                     +' url ' + self.url
