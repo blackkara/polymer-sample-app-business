@@ -1,0 +1,346 @@
+<link rel="import" href="/bower_components/polymer/polymer.html">
+<link rel="import" href="/bower_components/geo-location/geo-location.html">
+<link rel="import" href="/bower_components/core-ajax/core-ajax.html">
+
+<!--
+    @url: sends data to specified url
+    @period: sends data to specified url every specified period
+    @service: starts or stops service
+-->
+<polymer-element name="app-business" constructor="AppBusiness"
+    attributes="url period service lastPosition demo">
+
+    <template>
+
+        <geo-location highAccuracy="true"></geo-location>
+
+        <core-ajax id="ajax" url={{url}} reponse="{{ajaxResponse}}" error="{{ajaxError}}"></core-ajax>
+
+    </template>
+
+    <script src="protocol.js" type="text/javascript"></script>
+
+    <script>
+      (function(){
+          'use strict';
+
+          /**
+          * demoIndex, iterates demo points array (demoPoints) by this index, default 0
+          * demoTimer, every n period (demoPeriod), reads from demoPoints array.
+          * demoPeriod, demoTimer works by demoPeriod, default 500ms
+          * demoIsWorking, flag for demo working status, default false
+          * demoChangeSpeed, Changes the demoTimer interval
+          */
+          var demo_ = {};
+          demo_.index = 0;
+          demo_.timer = null;
+          demo_.period = 500;
+          demo_.points = [];
+          demo_.lastLat = null;
+          demo_.lastLng = null;
+          demo_.isWorking = false;
+          demo_.callback = null;
+
+          demo_.defaults = {};
+          demo_.defaults.deviceId = 'DEMO';
+          demo_.defaults.provider = 'fused';
+          demo_.defaults.bearing = 60;
+          demo_.defaults.accuracy = 5;
+          demo_.defaults.speed = 70;
+
+          demo_.changeSpeed = function(speed){
+              if(speed === 'normal') this.period = 800;
+              if(speed === 'slow') this.period = 1500;
+              if(speed === 'fast') this.period = 500;
+              if(speed === 'fastest') this.period = 10;
+
+              if(this.isWorking){
+                  this.pause();
+                  this.start();
+              }
+          };
+
+          demo_.pause = function(){
+              var self = this;
+              self.isWorking = false;
+              clearInterval(self.timer);
+          };
+
+          demo_.start = function(callback){
+              var self = this;
+              if(self.points.length < 1)
+                  return;
+
+              var currentPoint;
+              var currentSentence;
+
+              self.isWorking = true;
+
+              if(callback){
+                  self.callback = callback;
+              }
+
+              var currentObj = self.defaults;
+
+              var pointsCount = self.points.length;
+              self.timer = setInterval(function(){
+
+                  currentPoint = self.points[self.index];
+                  self.lastLat = currentPoint.lat.toFixed(6);
+                  self.lastLng = currentPoint.lng.toFixed(6);
+
+                  currentObj.latitude = self.lastLat;
+                  currentObj.longitude = self.lastLng;
+                  currentObj.date = Date.now() / 1000;
+
+                  // create sentence
+                  currentObj.sentence = KipyoSentence.kpyt(currentObj);;
+                  currentObj.index = self.index;
+
+                  self.index++;
+                  // Clear timer @demoTimer
+                  // Reset index @demoIndex
+                  // Set working flag @demoIsWorking
+                  // Fires 'on-demo-finished', Notifies listeners
+                  if(self.index === pointsCount) {
+                      clearInterval(self.timer);
+                      self.callback(currentObj, true);
+                      self.isWorking = false;
+                      self.index = 0;
+                      return;
+                  }
+                  self.callback(currentObj, false);
+
+
+                  // Go to next point
+
+
+
+
+              }, self.period);
+          };
+
+          Polymer({
+
+              // logging flag, @default false
+              log: false,
+
+              // logging tag
+              tag: 'app-business',
+
+
+              demoChangeSpeed: function(speed){
+                  demo_.changeSpeed(speed);
+              },
+
+              demoStart: function(){
+                  demo_.start();
+              },
+
+              demoPause: function(){
+                  demo_.pause();
+              },
+
+              demoChanged: function(){
+                  var status = this.demo;
+
+                  if(!status){
+                      demo_.pause();
+                  } else {
+                      demo_.start();
+                  }
+              },
+
+              ready: function(){
+                  var self = this;
+
+                  if(self.demo){
+                      var ajx = this.shadowRoot.querySelector('#ajax');
+                      ajx.url = 'elements/phone/app-business/smyrna.json';
+
+                      var listener = function(e){
+                          ajx.removeEventListener('core-response', listener, false);
+
+                          demo_.points = e.detail.response;
+                          demo_.start(function(currentObj, isFinished){
+                              self.notifySentenceListeners({sentenceId: currentObj.index, sentence:currentObj.sentence});
+                              self.lastPosition = JSON.stringify({lat: currentObj.latitude, lng: currentObj.longitude});
+                              if(isFinished){
+                                  self.fire('on-demo-finished');
+                              }
+                          });
+                      };
+                      ajx.addEventListener('core-response', listener, false);
+                      ajx.go();
+                  }
+              },
+
+              deviceId: null,
+              setDeviceId: function(id){
+                  this.deviceId = id;
+              },
+
+             /**
+              * remote server url, 'core-ajax' uses
+              */
+              url: '',
+
+             /**
+              * 'task' uses to send data to server.
+              *
+              * It might send data with specified period
+              * forexample, in every 5000 miliseconds
+              *
+              * Or, might send data as soon as
+              * geo-location obtaines
+              *
+              * @default 3000 miliseconds
+              */
+              period: 3000,
+
+             /**
+              * when service started, will be initialized
+              * when service stopped, will be cleared
+              */
+              task: null,
+
+             /**
+              * @lastUpdate, Device last update time
+              * When device gets location, updates lastUpdate
+              */
+              lastUpdate: null,
+
+             /**
+              * @lastLat, Device last latitude
+              * When device gets latitude, updates lastLat
+              */
+              lastLat: null,
+
+             /**
+              * @latLng, Device last longitude
+              * When device gets longitude, updates lastLng
+              */
+              lastLng: null,
+
+             /**
+              * For each sentence, phone-business assignes id
+              */
+              nextSentenceId: 1,
+
+             /**
+              * uses nextSentenceId property
+              * increases +1
+              */
+              ID: function(){
+                  return 'SENTENCE_' + (this.nextSentenceId++);
+              },
+
+              notifySentenceListeners : function(sentence){
+                    this.fire('on-sentence', sentence);
+              },
+
+             /**
+              * status of service
+              * startService and stopService change
+              * @default false
+              */
+              serviceStatus: false,
+
+             /**
+              * Listens to service property, started or not.
+              */
+              serviceChanged: function(e){
+
+                  var self = this;
+
+                  var status = self.service_;
+
+                  var gps = self.shadowRoot.querySelector('geo-location');
+
+                  var ajx = self.shadowRoot.querySelector('core-ajax');
+
+                  ajx.url = self.url_;
+
+                  if(status){
+
+                        // Listen location
+                        gps.watchPos = true;
+
+                        gps.addEventListener('geo-response', function(){
+
+                            if(self.log) console.log(self.tag + ': location updated');
+
+                            self.lastUpdate = Date.now() / 1000;
+
+                            self.lastLat = this.latitude.toFixed(8);
+
+                            self.lastLng = this.longitude.toFixed(8);
+
+                            if(self.period === 'location'){
+
+                                ajx.params = JSON.stringify({
+                                    sentenceId: self.ID(),
+                                    deviceId: self.deviceId,
+                                    provider: 'NETWORK',
+                                    speed: -1,
+                                    bearing: -1,
+                                    latitude: self.lastLat,
+                                    longitude: self.lastLng,
+                                    updatetime: self.lastUpdate
+                                });
+
+                                self.fire('on-sentence', ajx.params);
+
+                                ajx.go();
+
+                            }
+
+                        });
+
+                        if(!isNaN(self.period) && self.period >0){
+
+                            self.task = setInterval(function(){
+
+                                var obj = {
+                                    sentenceId: self.ID(),
+                                    deviceId: self.deviceId,
+                                    provider: 'NETWORK',
+                                    peed: -1,
+                                    bearing: -1,
+                                    latitude: self.lastLat,
+                                    longitude: self.lastLng,
+                                    updatetime: self.lastUpdate
+                                };
+
+                                var sentence = KipyoSentence.kpyt(obj);
+
+                                ajx.params = {sentence: sentence, deviceId: obj.deviceId};
+
+                                self.fire('on-sentence', {sentenceId: obj.sentenceId, sentence:sentence});
+
+                                ajx.go();
+
+                                if(self.log) console.log(self.tag + ': Task is working... ' + ajx.params);
+
+                            }, self.period);
+                        }
+
+                            if(self.log) console.log(self.tag + ': Service has started');
+                    }
+
+                    else {
+
+                        if(self.log) console.log(self.tag + ': Service has stopped');
+
+                        if(self.task)
+                            clearInterval(self.task);
+                            gps.watchPos = false;
+                            ajx.abort();
+                        }
+                    }
+                });
+            })();
+
+    </script>
+
+</polymer-element>
