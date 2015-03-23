@@ -1,6 +1,7 @@
 <link rel="import" href="/bower_components/polymer/polymer.html">
 <link rel="import" href="/bower_components/geo-location/geo-location.html">
 <link rel="import" href="/bower_components/core-ajax/core-ajax.html">
+<link rel="import" href="imports.html">
 
 <!--
     @url: sends data to specified url
@@ -10,15 +11,16 @@
 <polymer-element name="app-business" constructor="AppBusiness"
     attributes="url period service lastPosition demo">
 
+
+
     <template>
 
         <geo-location highAccuracy="true"></geo-location>
 
-        <core-ajax id="ajax" url={{url}} reponse="{{ajaxResponse}}" error="{{ajaxError}}"></core-ajax>
+        <core-ajax id="ajax" handleAs="json" url={{url}} reponse="{{ajaxResponse}}" error="{{ajaxError}}"></core-ajax>
 
     </template>
 
-    <script src="protocol.js" type="text/javascript"></script>
 
     <script>
       (function(){
@@ -68,7 +70,7 @@
 
           demo_.start = function(callback){
               var self = this;
-              if(self.points.length < 1)
+              if(self.points.length < 1 || self.isWorking)
                   return;
 
               var currentPoint;
@@ -128,6 +130,7 @@
               // logging tag
               tag: 'app-business',
 
+              demo: false,
 
               demoChangeSpeed: function(speed){
                   demo_.changeSpeed(speed);
@@ -154,24 +157,15 @@
               ready: function(){
                   var self = this;
 
-                  if(self.demo){
-                      var ajx = this.shadowRoot.querySelector('#ajax');
-                      ajx.url = 'elements/phone/app-business/smyrna.json';
-
-                      var listener = function(e){
-                          ajx.removeEventListener('core-response', listener, false);
-
-                          demo_.points = e.detail.response;
-                          demo_.start(function(currentObj, isFinished){
-                              self.notifySentenceListeners({sentenceId: currentObj.index, sentence:currentObj.sentence});
-                              self.lastPosition = JSON.stringify({lat: currentObj.latitude, lng: currentObj.longitude});
-                              if(isFinished){
-                                  self.fire('on-demo-finished');
-                              }
-                          });
-                      };
-                      ajx.addEventListener('core-response', listener, false);
-                      ajx.go();
+                  if(this.demo){
+                      demo_.points = points;
+                      demo_.start(function(currentObj, isFinished){
+                          self.notifySentenceListeners({sentenceId: currentObj.index, sentence:currentObj.sentence});
+                          self.lastPosition = JSON.stringify({lat: currentObj.latitude, lng: currentObj.longitude});
+                          if(isFinished){
+                              self.fire('on-demo-finished');
+                          }
+                      });
                   }
               },
 
