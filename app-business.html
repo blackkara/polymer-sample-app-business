@@ -11,8 +11,6 @@
 <polymer-element name="app-business" constructor="AppBusiness"
     attributes="url period service lastPosition demo">
 
-
-
     <template>
 
         <geo-location highAccuracy="true"></geo-location>
@@ -20,7 +18,6 @@
         <core-ajax id="ajax" handleAs="json" url={{url}} reponse="{{ajaxResponse}}" error="{{ajaxError}}"></core-ajax>
 
     </template>
-
 
     <script>
       (function(){
@@ -70,8 +67,9 @@
 
           demo_.start = function(callback){
               var self = this;
-              if(self.points.length < 1 || self.isWorking)
-                  return;
+              if(self.points.length < 1){
+                  self.points = points;
+              }
 
               var currentPoint;
               var currentSentence;
@@ -88,8 +86,8 @@
               self.timer = setInterval(function(){
 
                   currentPoint = self.points[self.index];
-                  self.lastLat = currentPoint.lat.toFixed(6);
-                  self.lastLng = currentPoint.lng.toFixed(6);
+                  self.lastLat = currentPoint.lat.toFixed(8);
+                  self.lastLng = currentPoint.lng.toFixed(8);
 
                   currentObj.latitude = self.lastLat;
                   currentObj.longitude = self.lastLng;
@@ -122,6 +120,10 @@
               }, self.period);
           };
 
+          demo_.callback = function(currentObj, isFinished){
+
+          };
+
           Polymer({
 
               // logging flag, @default false
@@ -137,7 +139,20 @@
               },
 
               demoStart: function(){
-                  demo_.start();
+                  var self = this;
+
+                  self.fire('on-demo-started');
+
+                  demo_.start(function(currentObj, isFinished){
+
+                      self.fire('on-sentence-changed', {sentenceId: currentObj.index, sentence: currentObj.sentence});
+
+                      self.fire('on-position-changed', {lat: currentObj.latitude, lng: currentObj.longitude});
+
+                      if(isFinished){
+                          self.fire('on-demo-finished');
+                      }
+                  });
               },
 
               demoPause: function(){
@@ -150,14 +165,14 @@
                   if(!status){
                       demo_.pause();
                   } else {
-                      demo_.start();
+                      this.demoStart();
                   }
               },
 
               ready: function(){
                   var self = this;
 
-                  if(this.demo){
+                  /*if(this.demo){
                       demo_.points = points;
                       demo_.start(function(currentObj, isFinished){
                           self.notifySentenceListeners({sentenceId: currentObj.index, sentence:currentObj.sentence});
@@ -166,7 +181,7 @@
                               self.fire('on-demo-finished');
                           }
                       });
-                  }
+                  }*/
               },
 
               deviceId: null,

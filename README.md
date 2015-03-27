@@ -20,7 +20,7 @@ sends data to server
 <app-business url="http://localhost:3000/tracking" period="location"></app-business>
 ```
 
-also includes smyrna.json file that containes points between two location. If you pass demo attribute, it simulates these points with period and show on map.
+also includes points.json file that containes points between two location. If you pass demo attribute, it simulates these points with period and show on map.
 ```html
 <!-- app-business.html -->
 <link rel="import" href="imports.html">
